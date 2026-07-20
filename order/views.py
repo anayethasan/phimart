@@ -9,6 +9,10 @@ from rest_framework.decorators import action
 from order.services import OrderService
 from rest_framework.response import Response
 from rest_framework import status
+from sslcommerz_lib import SSLCOMMERZ 
+from rest_framework.decorators import api_view
+from django.conf import settings as main_settings
+from django.http import HttpResponseRedirect
 
 class CartViewSet(CreateModelMixin, RetrieveModelMixin, DestroyModelMixin, GenericViewSet):
     serializer_class = CartSerializer
@@ -94,3 +98,59 @@ class OrderViewSet(ModelViewSet):
         if self.request.user.is_staff:
             return Order.objects.prefetch_related('items__product').all()
         return Order.objects.prefetch_related('items__product').filter(user=self.request.user)
+    
+@api_view(['POST'])
+def initiate_payment(request):
+    user = request.user
+    amount = request.data.get("amount")
+    order_id = request.data.get("orderId")
+    num_items = request.data.get("numItems")
+    
+    settings = { 'store_id': 'phima6a5ce9d7640a4', 'store_pass': 'phima6a5ce9d7640a4@ssl', 'issandbox': True }
+    sslcz = SSLCOMMERZ(settings)
+    post_body = {}
+    post_body['total_amount'] = amount
+    post_body['currency'] = "BDT"
+    post_body['tran_id'] = f"TXN_:ID{order_id}"
+    post_body['success_url'] = f"{main_settings.BACKEND_URL}/api/v1/payment/success/"
+    post_body['fail_url'] = f"{main_settings.BACKEND_URL}/api/v1/payment/fail/"
+    post_body['cancel_url'] = f"{main_settings.BACKEND_URL}/api/v1/payment/cancel"
+    post_body['emi_option'] = 0
+    post_body['cus_name'] = f"{user.first_name} {user.last_name}"
+    post_body['cus_email'] = user.email
+    post_body['cus_phone'] = user.phone_number
+    post_body['cus_add1'] = user.address
+    post_body['cus_city'] = "Dhaka"
+    post_body['cus_country'] = "Bangladesh"
+    post_body['shipping_method'] = "NO"
+    post_body['multi_card_name'] = ""
+    post_body['num_of_item'] = num_items
+    post_body['product_name'] = "E-commerce Products"
+    post_body['product_category'] = "General Category"
+    post_body['product_profile'] = "general"
+
+
+    response = sslcz.createSession(post_body) # API response
+    
+    if response.get("status") == 'SUCCESS':
+        return Response({"payment_url": response['GatewayPageURL']})
+    return Response({"error": "Payment initiation failed"}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['post'])
+def payment_success(request):
+    order_id = request.data.get("tran_id").split('_')[1]
+    order = Order.objects.get(id=order_id)
+    order.status = "Ready to Ship"
+    order.save()
+    return HttpResponseRedirect(f"{main_settings.FRONTEND_URL}/dashboard/orders/")
+    
+    
+@api_view(['POST'])
+def payment_cancel(request):
+    return HttpResponseRedirect(f"{main_settings.FRONTEND_URL}/dashboard/orders/")
+
+
+@api_view(['POST'])
+def payment_fail(request):
+    print("Inside fail")
+    return HttpResponseRedirect(f"{main_settings.FRONTEND_URL}/dashboard/orders/")

@@ -1,7 +1,7 @@
 from django.urls import path, include
 # from rest_framework.routers import DefaultRouter
 from products.views import ProductViewSet, CategoriesViewSet, ReviewViewSet, ProductImageViewSet
-from order.views import CartViewSet, CartItemViewSet, OrderViewSet
+from order.views import CartViewSet, CartItemViewSet, OrderViewSet, initiate_payment, payment_success, payment_cancel, payment_fail
 from rest_framework_nested import routers
 
 router = routers.DefaultRouter()
@@ -25,6 +25,10 @@ urlpatterns = [
     path('', include(router.urls)),
     path('', include(product_router.urls)),
     path('', include(cart_router.urls)),
+    path('payment/initiate/', initiate_payment, name="initiate-payment"),
+    path("payment/success/", payment_success, name="payment-success"),
+    path("payment/fail/", payment_fail, name="payment-fail"),
+    path("payment/cancel/", payment_cancel, name="payment-cancel"),
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.jwt')),
 ]
