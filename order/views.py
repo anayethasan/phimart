@@ -105,16 +105,18 @@ def initiate_payment(request):
     amount = request.data.get("amount")
     order_id = request.data.get("orderId")
     num_items = request.data.get("numItems")
+
+    settings = {'store_id': 'phima6a5ce9d7640a4',
+                'store_pass': 'phima6a5ce9d7640a4@ssl', 'issandbox': True}
     
-    settings = { 'store_id': 'phima6a5ce9d7640a4', 'store_pass': 'phima6a5ce9d7640a4@ssl', 'issandbox': True }
     sslcz = SSLCOMMERZ(settings)
     post_body = {}
     post_body['total_amount'] = amount
     post_body['currency'] = "BDT"
-    post_body['tran_id'] = f"TXN_:ID{order_id}"
+    post_body['tran_id'] = f"txn_{order_id}"
     post_body['success_url'] = f"{main_settings.BACKEND_URL}/api/v1/payment/success/"
     post_body['fail_url'] = f"{main_settings.BACKEND_URL}/api/v1/payment/fail/"
-    post_body['cancel_url'] = f"{main_settings.BACKEND_URL}/api/v1/payment/cancel"
+    post_body['cancel_url'] = f"{main_settings.BACKEND_URL}/api/v1/payment/cancel/"
     post_body['emi_option'] = 0
     post_body['cus_name'] = f"{user.first_name} {user.last_name}"
     post_body['cus_email'] = user.email
@@ -122,29 +124,59 @@ def initiate_payment(request):
     post_body['cus_add1'] = user.address
     post_body['cus_city'] = "Dhaka"
     post_body['cus_country'] = "Bangladesh"
-    post_body['shipping_method'] = "NO"
+    post_body['shipping_method'] = "Courier"
     post_body['multi_card_name'] = ""
     post_body['num_of_item'] = num_items
     post_body['product_name'] = "E-commerce Products"
-    post_body['product_category'] = "General Category"
+    post_body['product_category'] = "General"
     post_body['product_profile'] = "general"
 
+    response = sslcz.createSession(post_body)  # API response
 
-    response = sslcz.createSession(post_body) # API response
-    
     if response.get("status") == 'SUCCESS':
         return Response({"payment_url": response['GatewayPageURL']})
     return Response({"error": "Payment initiation failed"}, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['post'])
+
+# @api_view(['POST'])
+# def payment_success(request):
+#     print("Inside success")
+#     order_id = request.data.get("tran_id").split('_')[1] 
+#     print(order_id)
+#     order = Order.objects.get(id=order_id)
+#     order.status = "Ready To Ship"
+#     order.save()
+#     return HttpResponseRedirect(f"{main_settings.FRONTEND_URL}/dashboard/orders/")
+
+@api_view(["POST"])
 def payment_success(request):
-    order_id = request.data.get("tran_id").split('_')[1]
-    order = Order.objects.get(id=order_id)
-    order.status = "Ready to Ship"
+    print(request.data)
+
+    tran_id = request.data.get("tran_id")
+
+    if not tran_id:
+        return Response(
+            {"error": "tran_id is required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        order_id = tran_id.split("_")[1]
+        order = Order.objects.get(id=order_id)
+    except Order.DoesNotExist:
+        return Response(
+            {"error": "Order not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    order.status = "Ready To Ship"
     order.save()
-    return HttpResponseRedirect(f"{main_settings.FRONTEND_URL}/dashboard/orders/")
-    
-    
+
+    return HttpResponseRedirect(
+        f"{main_settings.FRONTEND_URL}/dashboard/orders/"
+    )
+
+
 @api_view(['POST'])
 def payment_cancel(request):
     return HttpResponseRedirect(f"{main_settings.FRONTEND_URL}/dashboard/orders/")
