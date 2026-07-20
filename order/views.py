@@ -10,9 +10,13 @@ from order.services import OrderService
 from rest_framework.response import Response
 from rest_framework import status
 from sslcommerz_lib import SSLCOMMERZ 
-from rest_framework.decorators import api_view
 from django.conf import settings as main_settings
 from django.http import HttpResponseRedirect
+
+from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
+from rest_framework.decorators import api_view, permission_classes, parser_classes
+from rest_framework.permissions import AllowAny
+
 
 class CartViewSet(CreateModelMixin, RetrieveModelMixin, DestroyModelMixin, GenericViewSet):
     serializer_class = CartSerializer
@@ -124,7 +128,7 @@ def initiate_payment(request):
     post_body['cus_add1'] = user.address
     post_body['cus_city'] = "Dhaka"
     post_body['cus_country'] = "Bangladesh"
-    post_body['shipping_method'] = "Courier"
+    post_body['shipping_method'] = "NO"
     post_body['multi_card_name'] = ""
     post_body['num_of_item'] = num_items
     post_body['product_name'] = "E-commerce Products"
@@ -132,49 +136,50 @@ def initiate_payment(request):
     post_body['product_profile'] = "general"
 
     response = sslcz.createSession(post_body)  # API response
+    print("SSLCommerz response:", response)
 
     if response.get("status") == 'SUCCESS':
         return Response({"payment_url": response['GatewayPageURL']})
     return Response({"error": "Payment initiation failed"}, status=status.HTTP_400_BAD_REQUEST)
 
 
-# @api_view(['POST'])
-# def payment_success(request):
-#     print("Inside success")
-#     order_id = request.data.get("tran_id").split('_')[1] 
-#     print(order_id)
-#     order = Order.objects.get(id=order_id)
-#     order.status = "Ready To Ship"
-#     order.save()
-#     return HttpResponseRedirect(f"{main_settings.FRONTEND_URL}/dashboard/orders/")
-
-@api_view(["POST"])
+@api_view(['POST'])
 def payment_success(request):
-    print(request.data)
-
-    tran_id = request.data.get("tran_id")
-
-    if not tran_id:
-        return Response(
-            {"error": "tran_id is required"},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    try:
-        order_id = tran_id.split("_")[1]
-        order = Order.objects.get(id=order_id)
-    except Order.DoesNotExist:
-        return Response(
-            {"error": "Order not found"},
-            status=status.HTTP_404_NOT_FOUND
-        )
-
-    order.status = "Ready To Ship"
+    print("Inside success")
+    order_id = request.data.get("tran_id").split('_')[1] 
+    print(order_id)
+    order = Order.objects.get(id=order_id)
+    order.status = Order.READY_TO_SHIP
     order.save()
+    return HttpResponseRedirect(f"{main_settings.FRONTEND_URL}/dashboard/orders/")
 
-    return HttpResponseRedirect(
-        f"{main_settings.FRONTEND_URL}/dashboard/orders/"
-    )
+# @api_view(["POST"])
+# @permission_classes([AllowAny])
+# @parser_classes([FormParser, MultiPartParser, JSONParser])
+# def payment_success(request):
+#     tran_id = request.data.get("tran_id")
+
+#     if not tran_id:
+#         return Response(
+#             {"error": "tran_id is required"},
+#             status=status.HTTP_400_BAD_REQUEST
+#         )
+
+#     try:
+#         order_id = tran_id.split("_")[1]
+#         order = Order.objects.get(id=order_id)
+#     except Order.DoesNotExist:
+#         return Response(
+#             {"error": "Order not found"},
+#             status=status.HTTP_404_NOT_FOUND
+#         )
+
+#     order.status = Order.READY_TO_SHIP
+#     order.save()
+
+#     return HttpResponseRedirect(
+#         f"{main_settings.FRONTEND_URL}/dashboard/orders/"
+#     )
 
 
 @api_view(['POST'])
