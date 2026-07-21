@@ -5,7 +5,7 @@ from order import serializers as ordersz
 from order.serializers import CartSerializer, CartItemSerializer, AddCartItemSerializer, UpdateCartItemSerializer, OrderSerializer, CreateOrderSerializer, UpdateOrderSerializer
 from order.models import Cart, CartItem, OrderItem, Order
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from rest_framework.decorators import action
+from rest_framework.decorators import APIView, action
 from order.services import OrderService
 from rest_framework.response import Response
 from rest_framework import status
@@ -191,3 +191,13 @@ def payment_cancel(request):
 def payment_fail(request):
     print("Inside fail")
     return HttpResponseRedirect(f"{main_settings.FRONTEND_URL}/dashboard/orders/")
+
+
+class HasOrderedProduct(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, product_id):
+        user = request.user
+        has_ordered = OrderItem.objects.filter(order__user=user, product_id=product_id).exists()
+        return Response({"hasOrdered": has_ordered})
+    
