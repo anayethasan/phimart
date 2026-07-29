@@ -57,6 +57,7 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
+    "https://phimart-client-eight.vercel.app",
 ]
 
 ROOT_URLCONF = 'phi_mart.urls'
